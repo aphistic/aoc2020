@@ -13,7 +13,7 @@ fn main() -> std::io::Result<()> {
         .map(|l| l.parse::<u32>().unwrap())
         .collect::<Vec<u32>>();
 
-    let matches = find_sums(&nums, 2, 2020);
+    let matches = find_sums(&nums, 3, 2020);
     println!("{:?}", matches);
     for m in matches {
         println!("prouct: {}", m.into_iter().product::<u32>());
