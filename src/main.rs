@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 use std::fs::File;
 use std::io::prelude::*;
 
@@ -16,7 +17,7 @@ fn main() -> std::io::Result<()> {
     let matches = find_sums(&nums, 3, 2020);
     println!("{:?}", matches);
     for m in matches {
-        println!("prouct: {}", m.into_iter().product::<u32>());
+        println!("product: {}", m.into_iter().product::<u32>());
     }
 
     Ok(())
@@ -24,26 +25,33 @@ fn main() -> std::io::Result<()> {
 
 fn find_sums(nums: &Vec<u32>, count: u32, total: u32) -> Vec<Vec<u32>> {
     fn sums(check_nums: &Vec<u32>, count: u32, total: u32, current: &Vec<u32>) -> Vec<Vec<u32>> {
-        let next_count = count - 1;
-        let mut found = Vec::new();
-        for check_num in check_nums {
-            let mut next_current = current.clone();
-            next_current.push(*check_num);
-            next_current.sort();
+        check_nums
+            .iter()
+            .map(|chk| {
+                let next_count = count - 1;
 
-            let next_sum = next_current.iter().sum::<u32>();
+                let mut next_current = current.clone();
+                next_current.push(*chk);
+                next_current.sort();
 
-            if next_count > 0 {
-                let mut check_found = sums(check_nums, next_count, total, &next_current);
+                let next_sum = next_current.iter().sum::<u32>();
 
-                found.append(&mut check_found);
-            } else if next_sum == total {
-                found.push(next_current)
-            }
-        }
-        found.dedup();
-        found
+                if next_count > 0 {
+                    sums(check_nums, next_count, total, &next_current)
+                } else if next_sum == total {
+                    vec![next_current]
+                } else {
+                    vec![]
+                }
+            })
+            .flatten()
+            .collect()
     };
 
-    sums(nums, count, total, &Vec::new())
+    let mut found = nums.into_par_iter()
+        .map(|c| sums(nums, count-1, total, &vec!{*c}))
+        .flatten()
+        .collect::<Vec<Vec<u32>>>();
+    found.dedup();
+    found
 }
