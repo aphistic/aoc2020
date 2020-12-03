@@ -2,6 +2,8 @@ use regex::Regex;
 use std::fs::File;
 use std::io::prelude::*;
 
+use crate::err;
+
 pub fn run() {
     let mut file = match File::open("data/02/input.txt") {
         Ok(file) => file,
@@ -25,30 +27,8 @@ pub fn run() {
     println!("valid pws: {}", valid_count);
 }
 
-#[derive(PartialEq, Debug)]
-struct ParseError {
-    msg: String,
-    data: String,
-}
-
-impl ParseError {
-    fn new(msg: &str, data: &str) -> ParseError {
-        ParseError {
-            msg: msg.to_owned(),
-            data: data.to_owned(),
-        }
-    }
-
-    fn msg(&self) -> &str {
-        self.msg.as_str()
-    }
-    fn data(&self) -> &str {
-        self.data.as_str()
-    }
-}
-
 trait PasswordValidator: Sized {
-    fn parse(s: &str) -> Result<Self, ParseError>;
+    fn parse(s: &str) -> Result<Self, err::ParseError>;
 
     fn is_valid(&self, _pass: &str) -> bool {
         true
@@ -71,34 +51,34 @@ impl SledValidator {
 }
 
 impl PasswordValidator for SledValidator {
-    fn parse(s: &str) -> Result<Self, ParseError> {
+    fn parse(s: &str) -> Result<Self, err::ParseError> {
         let re = match Regex::new(r"(?P<min>[0-9]+)-(?P<max>[0-9]+)\s+(?P<seq>[a-z]+)") {
             Ok(re) => re,
-            Err(e) => return Err(ParseError::new("invalid regex", s)),
+            Err(e) => return Err(err::ParseError::new("invalid regex", s)),
         };
         let caps = match re.captures(s) {
             Some(caps) => caps,
-            _ => return Err(ParseError::new("invalid validator format", s)),
+            _ => return Err(err::ParseError::new("invalid validator format", s)),
         };
 
         Ok(SledValidator {
             req_sequence: match caps.name("seq") {
                 Some(v) => v.as_str().to_owned(),
-                _ => return Err(ParseError::new("invalid validator format", s)),
+                _ => return Err(err::ParseError::new("invalid validator format", s)),
             },
             req_min: match caps.name("min") {
                 Some(v) => match v.as_str().parse::<u32>() {
                     Ok(v) => v,
-                    _ => return Err(ParseError::new("invalid min value", s)),
+                    _ => return Err(err::ParseError::new("invalid min value", s)),
                 },
-                _ => return Err(ParseError::new("invalid validator format", s)),
+                _ => return Err(err::ParseError::new("invalid validator format", s)),
             },
             req_max: match caps.name("max") {
                 Some(v) => match v.as_str().parse::<u32>() {
                     Ok(v) => v,
-                    _ => return Err(ParseError::new("invalid max value", s)),
+                    _ => return Err(err::ParseError::new("invalid max value", s)),
                 },
-                _ => return Err(ParseError::new("invalid validator format", s)),
+                _ => return Err(err::ParseError::new("invalid validator format", s)),
             },
         })
     }
@@ -137,34 +117,34 @@ impl TobogganValidator {
 }
 
 impl PasswordValidator for TobogganValidator {
-    fn parse(s: &str) -> Result<Self, ParseError> {
+    fn parse(s: &str) -> Result<Self, err::ParseError> {
         let re = match Regex::new(r"(?P<pos1>[0-9]+)-(?P<pos2>[0-9]+)\s+(?P<seq>[a-z]+)") {
             Ok(re) => re,
-            Err(e) => return Err(ParseError::new("invalid regex", s)),
+            Err(e) => return Err(err::ParseError::new("invalid regex", s)),
         };
         let caps = match re.captures(s) {
             Some(caps) => caps,
-            _ => return Err(ParseError::new("invalid validator format", s)),
+            _ => return Err(err::ParseError::new("invalid validator format", s)),
         };
 
         Ok(TobogganValidator {
             req_sequence: match caps.name("seq") {
                 Some(v) => v.as_str().to_owned(),
-                _ => return Err(ParseError::new("invalid validator format", s)),
+                _ => return Err(err::ParseError::new("invalid validator format", s)),
             },
             position1: match caps.name("pos1") {
                 Some(v) => match v.as_str().parse::<u32>() {
                     Ok(v) => v,
-                    _ => return Err(ParseError::new("invalid min value", s)),
+                    _ => return Err(err::ParseError::new("invalid min value", s)),
                 },
-                _ => return Err(ParseError::new("invalid validator format", s)),
+                _ => return Err(err::ParseError::new("invalid validator format", s)),
             },
             position2: match caps.name("pos2") {
                 Some(v) => match v.as_str().parse::<u32>() {
                     Ok(v) => v,
-                    _ => return Err(ParseError::new("invalid max value", s)),
+                    _ => return Err(err::ParseError::new("invalid max value", s)),
                 },
-                _ => return Err(ParseError::new("invalid validator format", s)),
+                _ => return Err(err::ParseError::new("invalid validator format", s)),
             },
         })
     }
@@ -190,7 +170,7 @@ struct Password<V> {
     value: String,
 }
 
-fn parse_passwords<V: PasswordValidator>(s: &str) -> Result<Vec<Password<V>>, ParseError> {
+fn parse_passwords<V: PasswordValidator>(s: &str) -> Result<Vec<Password<V>>, err::ParseError> {
     let lines = s.split("\n");
 
     let mut passwords = Vec::new();
@@ -210,10 +190,10 @@ fn parse_passwords<V: PasswordValidator>(s: &str) -> Result<Vec<Password<V>>, Pa
 }
 
 impl<V: PasswordValidator> Password<V> {
-    fn parse(s: &str) -> Result<Password<V>, ParseError> {
+    fn parse(s: &str) -> Result<Password<V>, err::ParseError> {
         let parts: Vec<&str> = s.split(":").collect();
         if parts.len() != 2 {
-            return Err(ParseError::new("invalid format", s));
+            return Err(err::ParseError::new("invalid format", s));
         }
 
         Ok(Password {
@@ -253,7 +233,7 @@ mod tests {
         fn parse_no_min() {
             assert_eq!(
                 Password::<SledValidator>::parse("-10 a: laskfdjlkasjd"),
-                Err(ParseError::new("invalid validator format", "-10 a")),
+                Err(err::ParseError::new("invalid validator format", "-10 a")),
             )
         }
 
@@ -261,7 +241,7 @@ mod tests {
         fn parse_no_max() {
             assert_eq!(
                 Password::<SledValidator>::parse("1- a: laskfdjlkasjd"),
-                Err(ParseError::new("invalid validator format", "1- a")),
+                Err(err::ParseError::new("invalid validator format", "1- a")),
             )
         }
 
@@ -269,11 +249,11 @@ mod tests {
         fn parse_no_seq() {
             assert_eq!(
                 Password::<SledValidator>::parse("1-10: laskfdjlkasjd"),
-                Err(ParseError::new("invalid validator format", "1-10")),
+                Err(err::ParseError::new("invalid validator format", "1-10")),
             );
             assert_eq!(
                 Password::<SledValidator>::parse("1-10    : laskfdjlkasjd"),
-                Err(ParseError::new("invalid validator format", "1-10    ")),
+                Err(err::ParseError::new("invalid validator format", "1-10    ")),
             );
         }
 
@@ -317,7 +297,7 @@ mod tests {
         fn parse_no_min() {
             assert_eq!(
                 Password::<TobogganValidator>::parse("-10 a: laskfdjlkasjd"),
-                Err(ParseError::new("invalid validator format", "-10 a")),
+                Err(err::ParseError::new("invalid validator format", "-10 a")),
             )
         }
 
@@ -325,7 +305,7 @@ mod tests {
         fn parse_no_max() {
             assert_eq!(
                 Password::<TobogganValidator>::parse("1- a: laskfdjlkasjd"),
-                Err(ParseError::new("invalid validator format", "1- a")),
+                Err(err::ParseError::new("invalid validator format", "1- a")),
             )
         }
 
@@ -333,11 +313,11 @@ mod tests {
         fn parse_no_seq() {
             assert_eq!(
                 Password::<TobogganValidator>::parse("1-10: laskfdjlkasjd"),
-                Err(ParseError::new("invalid validator format", "1-10")),
+                Err(err::ParseError::new("invalid validator format", "1-10")),
             );
             assert_eq!(
                 Password::<TobogganValidator>::parse("1-10    : laskfdjlkasjd"),
-                Err(ParseError::new("invalid validator format", "1-10    ")),
+                Err(err::ParseError::new("invalid validator format", "1-10    ")),
             );
         }
 
