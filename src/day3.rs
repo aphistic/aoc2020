@@ -13,16 +13,38 @@ pub fn run() {
         _ => {}
     };
 
-    let movement = Movement::with_moves(vec![
-        Move::Right(3),
-        Move::Down(1),
-    ]);
     let map = match Map::parse(&contents) {
         Ok(map) => map,
         Err(e) => panic!(e),
     };
 
-    println!("trees: {}", map.encounters(movement, MapElement::Tree))
+    let tree_counts = vec![
+        map.encounters(
+            Movement::with_moves(vec![Move::Right(1), Move::Down(1)]),
+            MapElement::Tree,
+        ),
+        map.encounters(
+            Movement::with_moves(vec![Move::Right(3), Move::Down(1)]),
+            MapElement::Tree,
+        ),
+        map.encounters(
+            Movement::with_moves(vec![Move::Right(5), Move::Down(1)]),
+            MapElement::Tree,
+        ),
+        map.encounters(
+            Movement::with_moves(vec![Move::Right(7), Move::Down(1)]),
+            MapElement::Tree,
+        ),
+        map.encounters(
+            Movement::with_moves(vec![Move::Right(1), Move::Down(2)]),
+            MapElement::Tree,
+        ),
+    ];
+
+    println!(
+        "tree product: {}",
+        tree_counts.iter().fold(1, |acc, c| acc * c)
+    );
 }
 
 enum Move {
@@ -140,10 +162,14 @@ impl MapElement {
 
 impl std::fmt::Display for MapElement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            MapElement::Tree => "#",
-            MapElement::Open => ".",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                MapElement::Tree => "#",
+                MapElement::Open => ".",
+            }
+        )
     }
 }
 
@@ -326,7 +352,7 @@ mod tests {
             let map = make_test_map_12x12();
             let mut t = Traversal::new(
                 &map,
-                Movement::with_moves(vec![Move::Right(2), Move::Down(1)])
+                Movement::with_moves(vec![Move::Right(2), Move::Down(1)]),
             );
 
             assert_eq!(t.next(), Some(&MapElement::Open));
