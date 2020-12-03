@@ -2,10 +2,16 @@ use rayon::prelude::*;
 use std::fs::File;
 use std::io::prelude::*;
 
-pub fn run() -> std::io::Result<()> {
-    let mut file = File::open("data/01/input.txt")?;
+pub fn run() {
+    let mut file = match File::open("data/01/input.txt") {
+        Ok(file) => file,
+        Err(e) => panic!(e),
+    };
     let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
+    match file.read_to_string(&mut contents) {
+        Err(e) => panic!(e),
+        _ => {},
+    };
 
     let lines = contents.split("\n");
 
@@ -19,8 +25,6 @@ pub fn run() -> std::io::Result<()> {
     for m in matches {
         println!("product: {}", m.into_iter().product::<u32>());
     }
-
-    Ok(())
 }
 
 fn find_sums(nums: &Vec<u32>, count: u32, total: u32) -> Vec<Vec<u32>> {

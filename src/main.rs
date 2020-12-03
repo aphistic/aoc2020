@@ -1,5 +1,6 @@
 mod day1;
+mod day2;
 
-fn main() -> std::io::Result<()> {
-    day1::run()
+fn main() {
+    day2::run()
 }
