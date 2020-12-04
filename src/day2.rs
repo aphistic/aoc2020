@@ -54,7 +54,7 @@ impl PasswordValidator for SledValidator {
     fn parse(s: &str) -> Result<Self, err::ParseError> {
         let re = match Regex::new(r"(?P<min>[0-9]+)-(?P<max>[0-9]+)\s+(?P<seq>[a-z]+)") {
             Ok(re) => re,
-            Err(e) => return Err(err::ParseError::new("invalid regex", s)),
+            Err(_) => return Err(err::ParseError::new("invalid regex", s)),
         };
         let caps = match re.captures(s) {
             Some(caps) => caps,
@@ -120,7 +120,7 @@ impl PasswordValidator for TobogganValidator {
     fn parse(s: &str) -> Result<Self, err::ParseError> {
         let re = match Regex::new(r"(?P<pos1>[0-9]+)-(?P<pos2>[0-9]+)\s+(?P<seq>[a-z]+)") {
             Ok(re) => re,
-            Err(e) => return Err(err::ParseError::new("invalid regex", s)),
+            Err(_) => return Err(err::ParseError::new("invalid regex", s)),
         };
         let caps = match re.captures(s) {
             Some(caps) => caps,
