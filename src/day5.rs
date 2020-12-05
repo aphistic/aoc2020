@@ -17,7 +17,6 @@ pub fn run() {
     };
 
     let plane = Plane::new(PLANE_ROWS, PLANE_COLS);
-    
     let lines: Vec<&str> = contents.split("\n").map(|l| l.trim()).collect();
 
     let mut ids: Vec<u32> = Vec::new();
@@ -27,8 +26,27 @@ pub fn run() {
             Err(e) => println!("could not find seat: {:?}", e),
         }
     }
+    ids.sort();
 
-    println!("highest seat id: {}", ids.iter().fold(0, |acc, id| if *id > acc { *id } else { acc }))
+    let high_id = ids
+        .iter()
+        .fold(0, |acc, id| if *id > acc { *id } else { acc });
+    let low_id = ids
+        .iter()
+        .fold(high_id, |acc, id| if *id < acc { *id } else { acc });
+    println!("id range: {} - {}", low_id, high_id);
+
+    let mut last_id = low_id;
+    for idx in 1..ids.len() - 1 {
+        let id = ids[idx];
+        let next_id = ids[idx + 1];
+
+        if next_id != id + 1 {
+            println!("missing id: {}", id + 1);
+        }
+
+        last_id = id;
+    }
 }
 
 #[derive(PartialEq, Debug)]
@@ -39,10 +57,7 @@ struct Seat {
 
 impl Seat {
     fn new(row: u32, col: u32) -> Seat {
-        Seat {
-            row: row,
-            col: col,
-        }
+        Seat { row: row, col: col }
     }
     fn row(&self) -> u32 {
         self.row
@@ -74,9 +89,9 @@ impl Plane {
         }
 
         let mut row_front: f64 = 0.0;
-        let mut row_back: f64 = (self.rows-1) as f64;
+        let mut row_back: f64 = (self.rows - 1) as f64;
         let mut col_left: f64 = 0.0;
-        let mut col_right: f64 = (self.cols-1) as f64;
+        let mut col_right: f64 = (self.cols - 1) as f64;
 
         for p in clean_seat.chars() {
             match p {
@@ -106,32 +121,17 @@ mod tests {
         fn find_seat() {
             let p = Plane::new(128, 8);
 
-            assert_eq!(
-                p.find_seat("FBFBBFFRLR"),
-                Ok(Seat{row: 44, col: 5}),
-            );
-            assert_eq!(
-                p.find_seat("BFFFBBFRRR"),
-                Ok(Seat{row: 70, col: 7}),
-            );
-            assert_eq!(
-                p.find_seat("FFFBBBFRRR"),
-                Ok(Seat{row: 14, col: 7}),
-            );
-            assert_eq!(
-                p.find_seat("BBFFBBFRLL"),
-                Ok(Seat{row: 102, col: 4}),
-            );
+            assert_eq!(p.find_seat("FBFBBFFRLR"), Ok(Seat { row: 44, col: 5 }),);
+            assert_eq!(p.find_seat("BFFFBBFRRR"), Ok(Seat { row: 70, col: 7 }),);
+            assert_eq!(p.find_seat("FFFBBBFRRR"), Ok(Seat { row: 14, col: 7 }),);
+            assert_eq!(p.find_seat("BBFFBBFRLL"), Ok(Seat { row: 102, col: 4 }),);
         }
 
         #[test]
         fn seat_id() {
             let p = Plane::new(128, 8);
 
-            assert_eq!(
-                p.seat_id(&Seat::new(44, 5)),
-                357,
-            )
+            assert_eq!(p.seat_id(&Seat::new(44, 5)), 357,)
         }
     }
 }
