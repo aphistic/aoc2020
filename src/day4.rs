@@ -17,7 +17,7 @@ pub fn run() {
         Ok(p) => p,
         Err(e) => {
             println!("could not parse passports: {:?}", e);
-            return
+            return;
         }
     };
 
@@ -37,11 +37,17 @@ impl Height {
     fn parse(s: &str) -> Result<Height, err::ParseError> {
         let clean_s = s.trim().to_lowercase();
         if clean_s.len() < 3 {
-            return Err(err::ParseError::new("invalid height format", s))
+            return Err(err::ParseError::new("invalid height format", s));
         }
 
-        let num: String = clean_s.chars().take_while(|c| *c >= '0' && *c <= '9').collect();
-        let unit: String = clean_s.chars().skip_while(|c| *c >= '0' && *c <= '9').collect();
+        let num: String = clean_s
+            .chars()
+            .take_while(|c| *c >= '0' && *c <= '9')
+            .collect();
+        let unit: String = clean_s
+            .chars()
+            .skip_while(|c| *c >= '0' && *c <= '9')
+            .collect();
 
         Ok(match num.parse::<u8>() {
             Ok(size) => match unit.as_str() {
@@ -101,7 +107,24 @@ impl PassportField {
         })
     }
 
-    // TODO move field validation here and just call that...
+    fn is_valid(&self) -> bool {
+        // Additional field validation
+        let hair_pattern = regex::Regex::new(r"#[a-f0-9]{6}").unwrap();
+        match *self {
+            PassportField::BirthYear(y) if y < 1920 || y > 2002 => false,
+            PassportField::IssueYear(y) if y < 2010 || y > 2020 => false,
+            PassportField::ExpirationYear(y) if y < 2020 || y > 2030 => false,
+            PassportField::Height(Height::Cm(s)) if s < 150 || s > 193 => false,
+            PassportField::Height(Height::In(s)) if s < 59 || s > 76 => false,
+            PassportField::HairColor(ref c) if !hair_pattern.is_match(c) => false,
+            PassportField::EyeColor(ref c) => match c.as_str() {
+                "amb" | "blu" | "brn" | "gry" | "grn" | "hzl" | "oth" => true,
+                _ => return false,
+            },
+            PassportField::PassportId(ref c) if c.len() != 9 || !c.parse::<u64>().is_ok() => false,
+            _ => true,
+        }
+    }
 }
 
 #[derive(PartialEq, Debug)]
@@ -148,25 +171,8 @@ impl Passport {
                 .map(|f| f)
                 .collect();
 
-            if fields.len() != 1 {
+            if fields.len() != 1 || !fields[0].is_valid() {
                 return false;
-            }
-
-            // Additional field validation
-            let hair_pattern = regex::Regex::new(r"#[a-f0-9]{6}").unwrap();
-            match fields[0] {
-                &PassportField::BirthYear(y) if y < 1920 || y > 2002 => return false,
-                &PassportField::IssueYear(y) if y < 2010 || y > 2020 => return false,
-                &PassportField::ExpirationYear(y) if y < 2020 || y > 2030 => return false,
-                &PassportField::Height(Height::Cm(s)) if s < 150 || s > 193 => return false,
-                &PassportField::Height(Height::In(s)) if s < 59 || s > 76 => return false,
-                &PassportField::HairColor(ref c) if !hair_pattern.is_match(c) => return false,
-                &PassportField::EyeColor(ref c) => match c.as_str() {
-                    "amb" | "blu" | "brn" | "gry" | "grn" | "hzl" | "oth" => {},
-                    _ => return false,
-                },
-                &PassportField::PassportId(ref c) if c.len() != 9 || !c.parse::<u64>().is_ok() => return false,
-                _ => {},
             }
         }
 
@@ -196,23 +202,27 @@ fn parse_passports(s: &str) -> Result<Vec<Passport>, err::ParseError> {
 
 #[cfg(test)]
 mod tests {
+    macro_rules! validate_tests {
+        ($($name:ident: $expected:tt, $value:expr,)*) => {
+                $(
+                    #[test]
+                    fn $name() {
+                        assert_eq!($value.is_valid(), $expected);
+                    }
+                )*
+        };
+    }
+
     mod height {
         use super::super::*;
 
         #[test]
         fn parse_valid_inches() {
-            assert_eq!(
-                Height::parse("230in"),
-                Ok(Height::In(230)),
-            )
+            assert_eq!(Height::parse("230in"), Ok(Height::In(230)),)
         }
-        
         #[test]
         fn parse_valid_centimeters() {
-            assert_eq!(
-                Height::parse("230cm"),
-                Ok(Height::Cm(230)),
-            )
+            assert_eq!(Height::parse("230cm"), Ok(Height::Cm(230)),)
         }
     }
 
@@ -274,6 +284,87 @@ mod tests {
                 PassportField::parse("cid:350"),
                 Ok(PassportField::CountryId(String::from("350"))),
             )
+        }
+
+        validate_tests! {
+            birth_year_below:  false, PassportField::BirthYear(1919),
+            birth_year_bottom: true,  PassportField::BirthYear(1920),
+            birth_year_mid:    true,  PassportField::BirthYear(2000),
+            birth_year_top:    true,  PassportField::BirthYear(2002),
+            birth_year_above:  false, PassportField::BirthYear(2003),
+        }
+        validate_tests! {
+            issue_year_below:  false, PassportField::IssueYear(2009),
+            issue_year_bottom: true,  PassportField::IssueYear(2010),
+            issue_year_mid:    true,  PassportField::IssueYear(2015),
+            issue_year_top:    true,  PassportField::IssueYear(2020),
+            issue_year_above:  false, PassportField::IssueYear(2021),
+        }
+        validate_tests! {
+            expiration_year_below:  false, PassportField::ExpirationYear(2019),
+            expiration_year_bottom: true,  PassportField::ExpirationYear(2020),
+            expiration_year_mid:    true,  PassportField::ExpirationYear(2025),
+            expiration_year_top:    true,  PassportField::ExpirationYear(2030),
+            expiration_year_above:  false, PassportField::ExpirationYear(2031),
+        }
+        validate_tests! {
+            height_cm_below:  false, PassportField::Height(Height::Cm(149)),
+            height_cm_bottom: true,  PassportField::Height(Height::Cm(150)),
+            height_cm_mid:    true,  PassportField::Height(Height::Cm(160)),
+            height_cm_top:    true,  PassportField::Height(Height::Cm(193)),
+            height_cm_above:  false, PassportField::Height(Height::Cm(194)),
+        }
+        validate_tests! {
+            height_in_below:  false, PassportField::Height(Height::In(58)),
+            height_in_bottom: true,  PassportField::Height(Height::In(59)),
+            height_in_mid:    true,  PassportField::Height(Height::In(65)),
+            height_in_top:    true,  PassportField::Height(Height::In(76)),
+            height_in_above:  false, PassportField::Height(Height::In(77)),
+        }
+        validate_tests! {
+            hair_color_0: true, PassportField::HairColor(String::from("#000000")),
+            hair_color_1: true, PassportField::HairColor(String::from("#111111")),
+            hair_color_2: true, PassportField::HairColor(String::from("#222222")),
+            hair_color_3: true, PassportField::HairColor(String::from("#333333")),
+            hair_color_4: true, PassportField::HairColor(String::from("#444444")),
+            hair_color_5: true, PassportField::HairColor(String::from("#555555")),
+            hair_color_6: true, PassportField::HairColor(String::from("#666666")),
+            hair_color_7: true, PassportField::HairColor(String::from("#777777")),
+            hair_color_8: true, PassportField::HairColor(String::from("#888888")),
+            hair_color_9: true, PassportField::HairColor(String::from("#999999")),
+            hair_color_a: true, PassportField::HairColor(String::from("#aaaaaa")),
+            hair_color_b: true, PassportField::HairColor(String::from("#bbbbbb")),
+            hair_color_c: true, PassportField::HairColor(String::from("#cccccc")),
+            hair_color_d: true, PassportField::HairColor(String::from("#dddddd")),
+            hair_color_e: true, PassportField::HairColor(String::from("#eeeeee")),
+            hair_color_f: true, PassportField::HairColor(String::from("#ffffff")),
+            hair_color_low_seq:  true, PassportField::HairColor(String::from("#012345")),
+            hair_color_mid_seq:  true, PassportField::HairColor(String::from("#6789ab")),
+            hair_color_high_seq: true, PassportField::HairColor(String::from("#cdefed")),
+            hair_color_invalid_with_hash: false, PassportField::HairColor(String::from("#kxdkxd")),
+            hair_color_invalid_no_hash:   false, PassportField::HairColor(String::from("kxdkxd")),
+            hair_color_valid_no_hash:     false, PassportField::HairColor(String::from("abcdef")),
+        }
+        validate_tests! {
+            eye_color_amb: true, PassportField::EyeColor(String::from("amb")),
+            eye_color_blu: true, PassportField::EyeColor(String::from("blu")),
+            eye_color_brn: true, PassportField::EyeColor(String::from("brn")),
+            eye_color_gry: true, PassportField::EyeColor(String::from("gry")),
+            eye_color_grn: true, PassportField::EyeColor(String::from("grn")),
+            eye_color_hzl: true, PassportField::EyeColor(String::from("hzl")),
+            eye_color_oth: true, PassportField::EyeColor(String::from("oth")),
+            eye_color_oth_caps:     false, PassportField::EyeColor(String::from("OTH")),
+            eye_color_invalid:      false, PassportField::EyeColor(String::from("kxd")),
+            eye_color_invalid_caps: false, PassportField::EyeColor(String::from("KXD")),
+        }
+        validate_tests! {
+            passport_id_zeros: true, PassportField::PassportId(String::from("000000000")),
+            passport_id_asc:   true, PassportField::PassportId(String::from("012345678")),
+            passport_id_desc:  true, PassportField::PassportId(String::from("987654321")),
+            passport_id_seq_zeros_start: true, PassportField::PassportId(String::from("000012345")),
+            passport_id_a:           false, PassportField::PassportId(String::from("aaaaaaaaa")),
+            passport_id_too_short:   false, PassportField::PassportId(String::from("12345")),
+            passport_id_alpha_start: false, PassportField::PassportId(String::from("a12345678")),
         }
     }
 
@@ -375,277 +466,77 @@ mod tests {
 
         #[test]
         fn all_fields_is_valid() {
-            match Passport::parse(
-                r"
-                ecl:gry pid:860033327 eyr:2020 hcl:#fffffd
-                byr:1937 iyr:2017 cid:147 hgt:183cm
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), true),
-                _ => panic!("invalid passport format"),
-            }
+            assert_eq!(
+                Passport {
+                    fields: vec![
+                        PassportField::EyeColor(String::from("gry")),
+                        PassportField::PassportId(String::from("860033327")),
+                        PassportField::ExpirationYear(2020),
+                        PassportField::HairColor(String::from("#fffffd")),
+                        PassportField::BirthYear(1937),
+                        PassportField::IssueYear(2017),
+                        PassportField::CountryId(String::from("147")),
+                        PassportField::Height(Height::Cm(183)),
+                    ],
+                }
+                .is_valid(),
+                true,
+            );
         }
         #[test]
         fn missing_field_is_not_valid() {
-            match Passport::parse(
-                r"
-                iyr:2013 ecl:amb cid:350 eyr:2023 pid:028048884
-                hcl:#cfa07d byr:1929
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
+            assert_eq!(
+                Passport {
+                    fields: vec![
+                        PassportField::EyeColor(String::from("gry")),
+                        PassportField::PassportId(String::from("860033327")),
+                        PassportField::ExpirationYear(2020),
+                        PassportField::HairColor(String::from("#fffffd")),
+                        PassportField::BirthYear(1937),
+                        PassportField::IssueYear(2017),
+                        PassportField::CountryId(String::from("147")),
+                        // Height missing
+                    ],
+                }
+                .is_valid(),
+                false,
+            );
         }
         #[test]
         fn missing_cid_is_valid() {
-            match Passport::parse(
-                r"
-                hcl:#ae17e1 iyr:2013
-                eyr:2024
-                ecl:brn pid:760753108 byr:1931
-                hgt:179cm
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), true),
-                _ => panic!("invalid passport format"),
-            }
+            assert_eq!(
+                Passport {
+                    fields: vec![
+                        PassportField::EyeColor(String::from("gry")),
+                        PassportField::PassportId(String::from("860033327")),
+                        PassportField::ExpirationYear(2020),
+                        PassportField::HairColor(String::from("#fffffd")),
+                        PassportField::BirthYear(1937),
+                        PassportField::IssueYear(2017),
+                        PassportField::Height(Height::Cm(183)),
+                    ],
+                }
+                .is_valid(),
+                true,
+            );
         }
         #[test]
         fn missing_multiple_fields_is_not_valid() {
-            match Passport::parse(
-                r"
-                hcl:#cfa07d eyr:2025 pid:166559648
-                iyr:2011 ecl:brn hgt:59in
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
-        }
-        
-        #[test]
-        fn not_valid_birth_year() {
-            // Low
-            match Passport::parse(
-                r"
-                ecl:gry pid:860033327 eyr:2020 hcl:#fffffd
-                byr:1919 iyr:2017 cid:147 hgt:183cm
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
-            // High
-            match Passport::parse(
-                r"
-                ecl:gry pid:860033327 eyr:2020 hcl:#fffffd
-                byr:2003 iyr:2017 cid:147 hgt:183cm
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
-        }
-        
-        #[test]
-        fn not_valid_issue_year() {
-            // Low
-            match Passport::parse(
-                r"
-                ecl:gry pid:860033327 eyr:2020 hcl:#fffffd
-                byr:1920 iyr:2009 cid:147 hgt:183cm
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
-            // High
-            match Passport::parse(
-                r"
-                ecl:gry pid:860033327 eyr:2020 hcl:#fffffd
-                byr:1920 iyr:2021 cid:147 hgt:183cm
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
-        }
-        
-        #[test]
-        fn not_valid_expiration_year() {
-            // Low
-            match Passport::parse(
-                r"
-                ecl:gry pid:860033327 eyr:2019 hcl:#fffffd
-                byr:1920 iyr:2010 cid:147 hgt:183cm
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
-            // High
-            match Passport::parse(
-                r"
-                ecl:gry pid:860033327 eyr:2031 hcl:#fffffd
-                byr:1920 iyr:2010 cid:147 hgt:183cm
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
-        }
-        
-        #[test]
-        fn not_valid_height_cm() {
-            // Low
-            match Passport::parse(
-                r"
-                pid:087499704 hgt:149cm ecl:grn iyr:2012 eyr:2030 byr:1980
-                hcl:#623a2f
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
-            // High
-            match Passport::parse(
-                r"
-                pid:087499704 hgt:194cm ecl:grn iyr:2012 eyr:2030 byr:1980
-                hcl:#623a2f
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
-        }
-        
-        #[test]
-        fn not_valid_height_in() {
-            // Low
-            match Passport::parse(
-                r"
-                pid:087499704 hgt:58in ecl:grn iyr:2012 eyr:2030 byr:1980
-                hcl:#623a2f
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
-            // High
-            match Passport::parse(
-                r"
-                pid:087499704 hgt:77in ecl:grn iyr:2012 eyr:2030 byr:1980
-                hcl:#623a2f
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
-        }
-        
-        // TODO test hair color matching
-
-        #[test]
-        fn valid_eye_color() {
-            match Passport::parse(
-                r"
-                pid:087499704 hgt:59in ecl:amb iyr:2012 eyr:2030 byr:1980
-                hcl:#623a2f
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), true),
-                _ => panic!("invalid passport format"),
-            }
-            match Passport::parse(
-                r"
-                pid:087499704 hgt:59in ecl:blu iyr:2012 eyr:2030 byr:1980
-                hcl:#623a2f
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), true),
-                _ => panic!("invalid passport format"),
-            }
-            match Passport::parse(
-                r"
-                pid:087499704 hgt:59in ecl:brn iyr:2012 eyr:2030 byr:1980
-                hcl:#623a2f
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), true),
-                _ => panic!("invalid passport format"),
-            }
-            match Passport::parse(
-                r"
-                pid:087499704 hgt:59in ecl:gry iyr:2012 eyr:2030 byr:1980
-                hcl:#623a2f
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), true),
-                _ => panic!("invalid passport format"),
-            }
-            match Passport::parse(
-                r"
-                pid:087499704 hgt:59in ecl:grn iyr:2012 eyr:2030 byr:1980
-                hcl:#623a2f
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), true),
-                _ => panic!("invalid passport format"),
-            }
-            match Passport::parse(
-                r"
-                pid:087499704 hgt:59in ecl:hzl iyr:2012 eyr:2030 byr:1980
-                hcl:#623a2f
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), true),
-                _ => panic!("invalid passport format"),
-            }
-            match Passport::parse(
-                r"
-                pid:087499704 hgt:59in ecl:oth iyr:2012 eyr:2030 byr:1980
-                hcl:#623a2f
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), true),
-                _ => panic!("invalid passport format"),
-            }
-        }
-
-        #[test]
-        fn not_valid_eye_color() {
-            match Passport::parse(
-                r"
-                pid:087499704 hgt:59in ecl:kxd iyr:2012 eyr:2030 byr:1980
-                hcl:#623a2f
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
-        }
-        
-        #[test]
-        fn not_valid_passport_id() {
-            match Passport::parse(
-                r"
-                pid:87499704 hgt:59in ecl:amb iyr:2012 eyr:2030 byr:1980
-                hcl:#623a2f
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
-            match Passport::parse(
-                r"
-                pid:a87499704 hgt:59in ecl:amb iyr:2012 eyr:2030 byr:1980
-                hcl:#623a2f
-                ",
-            ) {
-                Ok(p) => assert_eq!(p.is_valid(), false),
-                _ => panic!("invalid passport format"),
-            }
+            assert_eq!(
+                Passport {
+                    fields: vec![
+                        PassportField::EyeColor(String::from("gry")),
+                        PassportField::PassportId(String::from("860033327")),
+                        PassportField::ExpirationYear(2020),
+                        PassportField::HairColor(String::from("#fffffd")),
+                        PassportField::IssueYear(2017),
+                        PassportField::Height(Height::Cm(183)),
+                        // Missing country id (ok) and birth year (not ok)
+                    ],
+                }
+                .is_valid(),
+                false,
+            );
         }
     }
 }
