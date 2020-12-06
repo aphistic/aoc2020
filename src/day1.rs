@@ -1,29 +1,37 @@
-use rayon::prelude::*;
 use std::fs::File;
 use std::io::prelude::*;
 
-pub fn run() {
-    let mut file = match File::open("data/01/input.txt") {
-        Ok(file) => file,
-        Err(e) => panic!(e),
-    };
-    let mut contents = String::new();
-    match file.read_to_string(&mut contents) {
-        Err(e) => panic!(e),
-        _ => {},
-    };
+use rayon::prelude::*;
 
-    let lines = contents.split("\n");
+use crate::days;
 
-    let nums = lines
-        .into_iter()
-        .map(|l| l.parse::<u32>().unwrap())
-        .collect::<Vec<u32>>();
+#[derive(Debug)]
+pub struct Day{}
+impl days::Day for Day {
+    fn run(&self) {
+        println!("running day 1");
+        let mut file = match File::open("data/01/input.txt") {
+            Ok(file) => file,
+            Err(e) => panic!(e),
+        };
+        let mut contents = String::new();
+        match file.read_to_string(&mut contents) {
+            Err(e) => panic!(e),
+            _ => {},
+        };
 
-    let matches = find_sums(&nums, 3, 2020);
-    println!("{:?}", matches);
-    for m in matches {
-        println!("product: {}", m.into_iter().product::<u32>());
+        let lines = contents.split("\n");
+
+        let nums = lines
+            .into_iter()
+            .map(|l| l.parse::<u32>().unwrap())
+            .collect::<Vec<u32>>();
+
+        let matches = find_sums(&nums, 3, 2020);
+        println!("{:?}", matches);
+        for m in matches {
+            println!("product: {}", m.into_iter().product::<u32>());
+        }
     }
 }
 

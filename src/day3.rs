@@ -1,52 +1,60 @@
-use crate::err;
 use std::fs::File;
 use std::io::prelude::*;
 
-pub fn run() {
-    let mut file = match File::open("data/03/input.txt") {
-        Ok(file) => file,
-        Err(e) => panic!(e),
-    };
-    let mut contents = String::new();
-    match file.read_to_string(&mut contents) {
-        Err(e) => panic!(e),
-        _ => {}
-    };
+use crate::days;
+use crate::err;
 
-    let map = match Map::parse(&contents) {
-        Ok(map) => map,
-        Err(e) => panic!(e),
-    };
+#[derive(Debug)]
+pub struct Day{}
+impl days::Day for Day {
+    fn run(&self) {
+        println!("running day 3");
+        let mut file = match File::open("data/03/input.txt") {
+            Ok(file) => file,
+            Err(e) => panic!(e),
+        };
+        let mut contents = String::new();
+        match file.read_to_string(&mut contents) {
+            Err(e) => panic!(e),
+            _ => {}
+        };
 
-    let tree_counts = vec![
-        map.encounters(
-            Movement::with_moves(vec![Move::Right(1), Move::Down(1)]),
-            MapElement::Tree,
-        ),
-        map.encounters(
-            Movement::with_moves(vec![Move::Right(3), Move::Down(1)]),
-            MapElement::Tree,
-        ),
-        map.encounters(
-            Movement::with_moves(vec![Move::Right(5), Move::Down(1)]),
-            MapElement::Tree,
-        ),
-        map.encounters(
-            Movement::with_moves(vec![Move::Right(7), Move::Down(1)]),
-            MapElement::Tree,
-        ),
-        map.encounters(
-            Movement::with_moves(vec![Move::Right(1), Move::Down(2)]),
-            MapElement::Tree,
-        ),
-    ];
+        let map = match Map::parse(&contents) {
+            Ok(map) => map,
+            Err(e) => panic!(e),
+        };
 
-    println!(
-        "tree product: {}",
-        tree_counts.iter().fold(1, |acc, c| acc * c)
-    );
+        let tree_counts = vec![
+            map.encounters(
+                Movement::with_moves(vec![Move::Right(1), Move::Down(1)]),
+                MapElement::Tree,
+            ),
+            map.encounters(
+                Movement::with_moves(vec![Move::Right(3), Move::Down(1)]),
+                MapElement::Tree,
+            ),
+            map.encounters(
+                Movement::with_moves(vec![Move::Right(5), Move::Down(1)]),
+                MapElement::Tree,
+            ),
+            map.encounters(
+                Movement::with_moves(vec![Move::Right(7), Move::Down(1)]),
+                MapElement::Tree,
+            ),
+            map.encounters(
+                Movement::with_moves(vec![Move::Right(1), Move::Down(2)]),
+                MapElement::Tree,
+            ),
+        ];
+
+        println!(
+            "tree product: {}",
+            tree_counts.iter().fold(1, |acc, c| acc * c)
+        );
+    }
 }
 
+#[allow(dead_code)]
 enum Move {
     Up(u32),
     Right(u32),
@@ -59,9 +67,6 @@ struct Movement {
 }
 
 impl Movement {
-    fn new() -> Movement {
-        Movement { moves: Vec::new() }
-    }
     fn with_moves(moves: Vec<Move>) -> Movement {
         Movement { moves: moves }
     }
@@ -105,8 +110,8 @@ impl<'a> Iterator for Traversal<'a> {
         let map_width = self.map.width() as i64;
         let map_height = self.map.height() as i64;
 
-        let mut x = self.loc_x as i64;
-        let mut y = self.loc_y as i64;
+        let mut x = self.x() as i64;
+        let mut y = self.y() as i64;
         for mov in self.movement.moves() {
             match mov {
                 Move::Up(delta) => {
@@ -139,7 +144,7 @@ impl<'a> Iterator for Traversal<'a> {
         self.loc_x = x as u32;
         self.loc_y = y as u32;
 
-        let res = self.map.get(self.loc_x as usize, self.loc_y as usize);
+        let res = self.map.get(self.x() as usize, self.y() as usize);
         res
     }
 }

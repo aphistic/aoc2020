@@ -1,30 +1,37 @@
-use crate::err;
 use std::fs::File;
 use std::io::prelude::*;
 
-pub fn run() {
-    let mut file = match File::open("data/04/input.txt") {
-        Ok(file) => file,
-        Err(e) => panic!(e),
-    };
-    let mut contents = String::new();
-    match file.read_to_string(&mut contents) {
-        Err(e) => panic!(e),
-        _ => {}
-    };
+use crate::days;
+use crate::err;
 
-    let passports = match parse_passports(&contents) {
-        Ok(p) => p,
-        Err(e) => {
-            println!("could not parse passports: {:?}", e);
-            return;
-        }
-    };
+#[derive(Debug)]
+pub struct Day{}
+impl days::Day for Day {
+    fn run(&self) {
+        println!("running day 4");
+        let mut file = match File::open("data/04/input.txt") {
+            Ok(file) => file,
+            Err(e) => panic!(e),
+        };
+        let mut contents = String::new();
+        match file.read_to_string(&mut contents) {
+            Err(e) => panic!(e),
+            _ => {}
+        };
 
-    println!(
-        "valid passports: {}",
-        passports.iter().filter(|p| p.is_valid()).count()
-    );
+        let passports = match parse_passports(&contents) {
+            Ok(p) => p,
+            Err(e) => {
+                println!("could not parse passports: {:?}", e);
+                return;
+            }
+        };
+
+        println!(
+            "valid passports: {}",
+            passports.iter().filter(|p| p.is_valid()).count()
+        );
+    }
 }
 
 #[derive(PartialEq, Debug)]

@@ -1,51 +1,55 @@
-use crate::err;
 use std::fs::File;
 use std::io::prelude::*;
+
+use crate::days;
+use crate::err;
 
 const PLANE_ROWS: u32 = 128;
 const PLANE_COLS: u32 = 8;
 
-pub fn run() {
-    let mut file = match File::open("data/05/input.txt") {
-        Ok(file) => file,
-        Err(e) => panic!(e),
-    };
-    let mut contents = String::new();
-    match file.read_to_string(&mut contents) {
-        Err(e) => panic!(e),
-        _ => {}
-    };
+#[derive(Debug)]
+pub struct Day{}
+impl days::Day for Day {
+    fn run(&self) {
+        println!("running day 5");
+        let mut file = match File::open("data/05/input.txt") {
+            Ok(file) => file,
+            Err(e) => panic!(e),
+        };
+        let mut contents = String::new();
+        match file.read_to_string(&mut contents) {
+            Err(e) => panic!(e),
+            _ => {}
+        };
 
-    let plane = Plane::new(PLANE_ROWS, PLANE_COLS);
-    let lines: Vec<&str> = contents.split("\n").map(|l| l.trim()).collect();
+        let plane = Plane::new(PLANE_ROWS, PLANE_COLS);
+        let lines: Vec<&str> = contents.split("\n").map(|l| l.trim()).collect();
 
-    let mut ids: Vec<u32> = Vec::new();
-    for line in lines {
-        match plane.find_seat(line) {
-            Ok(seat) => ids.push(plane.seat_id(&seat)),
-            Err(e) => println!("could not find seat: {:?}", e),
+        let mut ids: Vec<u32> = Vec::new();
+        for line in lines {
+            match plane.find_seat(line) {
+                Ok(seat) => ids.push(plane.seat_id(&seat)),
+                Err(e) => println!("could not find seat: {:?}", e),
+            }
         }
-    }
-    ids.sort();
+        ids.sort();
 
-    let high_id = ids
-        .iter()
-        .fold(0, |acc, id| if *id > acc { *id } else { acc });
-    let low_id = ids
-        .iter()
-        .fold(high_id, |acc, id| if *id < acc { *id } else { acc });
-    println!("id range: {} - {}", low_id, high_id);
+        let high_id = ids
+            .iter()
+            .fold(0, |acc, id| if *id > acc { *id } else { acc });
+        let low_id = ids
+            .iter()
+            .fold(high_id, |acc, id| if *id < acc { *id } else { acc });
+        println!("id range: {} - {}", low_id, high_id);
 
-    let mut last_id = low_id;
-    for idx in 1..ids.len() - 1 {
-        let id = ids[idx];
-        let next_id = ids[idx + 1];
+        for idx in 1..ids.len() - 1 {
+            let id = ids[idx];
+            let next_id = ids[idx + 1];
 
-        if next_id != id + 1 {
-            println!("missing id: {}", id + 1);
+            if next_id != id + 1 {
+                println!("missing id: {}", id + 1);
+            }
         }
-
-        last_id = id;
     }
 }
 

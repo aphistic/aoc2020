@@ -2,29 +2,35 @@ use regex::Regex;
 use std::fs::File;
 use std::io::prelude::*;
 
+use crate::days;
 use crate::err;
 
-pub fn run() {
-    let mut file = match File::open("data/02/input.txt") {
-        Ok(file) => file,
-        Err(e) => panic!(e),
-    };
-    let mut contents = String::new();
-    match file.read_to_string(&mut contents) {
-        Err(e) => panic!(e),
-        _ => {}
-    };
+#[derive(Debug)]
+pub struct Day{}
+impl days::Day for Day {
+    fn run(&self) {
+        println!("running day 2");
+        let mut file = match File::open("data/02/input.txt") {
+            Ok(file) => file,
+            Err(e) => panic!(e),
+        };
+        let mut contents = String::new();
+        match file.read_to_string(&mut contents) {
+            Err(e) => panic!(e),
+            _ => {}
+        };
 
-    let pws = match parse_passwords::<TobogganValidator>(&contents) {
-        Ok(pws) => pws,
-        Err(e) => panic!("couldn't parse: {:?}", e),
-    };
+        let pws = match parse_passwords::<TobogganValidator>(&contents) {
+            Ok(pws) => pws,
+            Err(e) => panic!("couldn't parse: {:?}", e),
+        };
 
-    let valid_count = pws
-        .iter()
-        .fold(0, |acc, pw| if pw.is_valid() { acc + 1 } else { acc });
+        let valid_count = pws
+            .iter()
+            .fold(0, |acc, pw| if pw.is_valid() { acc + 1 } else { acc });
 
-    println!("valid pws: {}", valid_count);
+        println!("valid pws: {}", valid_count);
+    }
 }
 
 trait PasswordValidator: Sized {

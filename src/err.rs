@@ -11,11 +11,4 @@ impl ParseError {
             data: data.to_owned(),
         }
     }
-
-    pub fn msg(&self) -> &str {
-        self.msg.as_str()
-    }
-    pub fn data(&self) -> &str {
-        self.data.as_str()
-    }
 }
