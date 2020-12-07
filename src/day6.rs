@@ -120,7 +120,7 @@ mod tests {
                     Survey::with_yes_answers(vec!['c']),
                 ],
             };
-            assert_eq!(g.yes_total(), 3);
+            assert_eq!(g.yes_total(), 0);
             
             let g = Group{
                 surveys: vec![
@@ -135,7 +135,7 @@ mod tests {
                     Survey::with_yes_answers(vec!['a','c']),
                 ],
             };
-            assert_eq!(g.yes_total(), 3);
+            assert_eq!(g.yes_total(), 1);
             
             let g = Group{
                 surveys: vec![
