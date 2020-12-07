@@ -86,18 +86,23 @@ impl Group {
         })
     }
 
+    fn member_count(&self) -> u32 {
+        self.surveys.len() as u32
+    }
+
     fn yes_total(&self) -> u32 {
-        let mut yes_questions: Vec<char> = Vec::new();
+        let mut yes_questions: HashMap<char, u32> = HashMap::new();
         for survey in &self.surveys {
             for question in &survey.yes_answers {
-                yes_questions.push(*question);
+                yes_questions.insert(*question, match yes_questions.get(question) {
+                    Some(total) => total + 1,
+                    None => 1,
+                });
             }
         }
 
-        yes_questions.sort();
-        yes_questions.dedup();
-
-        yes_questions.len() as u32
+        let total_members = self.member_count();
+        yes_questions.iter().filter(|(_question, total)| **total == total_members).collect::<HashMap<&char, &u32>>().len() as u32
     }
 }
 
