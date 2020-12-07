@@ -9,6 +9,7 @@ mod day3;
 mod day4;
 mod day5;
 mod day6;
+mod day7;
 
 fn main() {
     let aoc_days: Vec<Box<dyn days::Day>> = vec![
@@ -18,6 +19,7 @@ fn main() {
         Box::new(day4::Day {}),
         Box::new(day5::Day {}),
         Box::new(day6::Day {}),
+        Box::new(day7::Day {}),
     ];
 
     match env::args().collect::<Vec<String>>().get(1) {
