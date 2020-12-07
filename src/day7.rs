@@ -27,7 +27,9 @@ impl days::Day for Day {
             }
         };
 
-        println!("color options: {}", rulebook.find_options(&ColorStyle::new("shiny", "gold")).len());
+        println!("style options: {}", rulebook.find_options(&ColorStyle::new("shiny", "gold")).len());
+        println!("color options: {}", rulebook.color_options(&ColorStyle::new("shiny", "gold")).len());
+        println!("bags inside: {}", rulebook.bags_inside(&ColorStyle::new("shiny", "gold")));
     }
 }
 
@@ -176,6 +178,16 @@ impl Rulebook {
 
         Ok(Rulebook { rules: rules })
     }
+    
+    fn find_rule(&self, style: &ColorStyle) -> Option<&Rule> {
+        for rule in &self.rules {
+            if rule.bag == *style {
+                return Some(&rule)
+            }
+        }
+
+        None
+    }
 
     fn find_options(&self, style: &ColorStyle) -> Vec<&ColorStyle> {
         let mut found = Vec::new();
@@ -208,6 +220,26 @@ impl Rulebook {
         colors.dedup();
 
         colors
+    }
+
+    fn bags_inside(&self, style: &ColorStyle) -> u32 {
+        let rule = match self.find_rule(style) {
+            Some(rule) => rule,
+            None => return 0,
+        };
+
+        let mut total = 0;
+        if let Some(rule_contents) = &rule.contents {
+            for check_style in rule_contents {
+                // Add the number of bags for this style, plus
+                // we need to multiply that by the number of the
+                // bags INSIDE those bags.
+                total += check_style.amount;
+                total += check_style.amount * self.bags_inside(&check_style.style);
+            }
+        }
+
+        total
     }
 }
 
@@ -336,7 +368,7 @@ mod tests {
     mod rulebook {
         use super::super::*;
 
-        fn make_book() -> Rulebook {
+        fn make_options_book() -> Rulebook {
             Rulebook::parse(r"
                 light red bags contain 1 bright white bag, 2 muted yellow bags.
                 dark orange bags contain 3 bright white bags, 4 muted yellow bags.
@@ -347,6 +379,17 @@ mod tests {
                 vibrant plum bags contain 5 faded blue bags, 6 dotted black bags.
                 faded blue bags contain no other bags.
                 dotted black bags contain no other bags.
+            ").unwrap()
+        }
+        fn make_depth_book() -> Rulebook {
+            Rulebook::parse(r"
+                shiny gold bags contain 2 dark red bags.
+                dark red bags contain 2 dark orange bags.
+                dark orange bags contain 2 dark yellow bags.
+                dark yellow bags contain 2 dark green bags.
+                dark green bags contain 2 dark blue bags.
+                dark blue bags contain 2 dark violet bags.
+                dark violet bags contain no other bags.
             ").unwrap()
         }
 
@@ -420,7 +463,7 @@ mod tests {
 
         #[test]
         fn find_options_1() {
-            let book = make_book();
+            let book = make_options_book();
             assert_eq!(
                 book.find_options(&ColorStyle::new("muted", "yellow")),
                 vec![
@@ -432,7 +475,7 @@ mod tests {
         
         #[test]
         fn find_options_2() {
-            let book = make_book();
+            let book = make_options_book();
             assert_eq!(
                 book.find_options(&ColorStyle::new("shiny", "gold")),
                 vec![
@@ -446,7 +489,7 @@ mod tests {
         
         #[test]
         fn color_options_1() {
-            let book = make_book();
+            let book = make_options_book();
             assert_eq!(
                 book.color_options(&ColorStyle::new("shiny", "gold")),
                 vec!["orange", "red", "white", "yellow"],
@@ -455,10 +498,46 @@ mod tests {
         
         #[test]
         fn color_options_2() {
-            let book = make_book();
+            let book = make_options_book();
             assert_eq!(
                 book.color_options(&ColorStyle::new("dotted", "black")),
                 vec!["gold", "olive", "orange", "plum", "red", "white", "yellow"],
+            )
+        }
+        
+        #[test]
+        fn contains_dark_violet() {
+            let book = make_depth_book();
+            assert_eq!(
+                book.bags_inside(&ColorStyle::new("dark", "violet")),
+                0,
+            )
+        }
+        
+        #[test]
+        fn contains_dark_blue() {
+            let book = make_depth_book();
+            assert_eq!(
+                book.bags_inside(&ColorStyle::new("dark", "blue")),
+                2,
+            )
+        }
+        
+        #[test]
+        fn contains_dark_green() {
+            let book = make_depth_book();
+            assert_eq!(
+                book.bags_inside(&ColorStyle::new("dark", "green")),
+                6,
+            )
+        }
+
+        #[test]
+        fn contains_shiny_gold() {
+            let book = make_depth_book();
+            assert_eq!(
+                book.bags_inside(&ColorStyle::new("shiny", "gold")),
+                126,
             )
         }
     }
