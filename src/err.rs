@@ -12,3 +12,18 @@ impl ParseError {
         }
     }
 }
+
+#[derive(PartialEq, Debug)]
+pub struct ExecError {
+    msg: String,
+    pc: u32,
+}
+
+impl ExecError {
+    pub fn new(msg: &str, pc: u32) -> ExecError {
+        ExecError{
+            msg: msg.to_owned(),
+            pc: pc,
+        }
+    }
+}

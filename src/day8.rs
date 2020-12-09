@@ -19,16 +19,49 @@ impl days::Day for Day {
             _ => {}
         };
 
-        let mut m = Machine::new();
-        let prog = match Program::parse(&contents) {
-            Ok(prog) => prog,
-            Err(e) => panic!(e),
-        };
+        // Brute force swapping ops until it runs.
+        let mut pc: u32 = 0;
+        loop {
+            let mut m = Machine::new();
+            let mut prog = match Program::parse(&contents) {
+                Ok(prog) => prog,
+                Err(e) => panic!(e),
+            };
 
-        m.load(&prog);
-        m.run();
+            let check_pc = pc;
+            pc += 1;
 
-        println!("acc: {}", m.acc());
+            print!("trying pc {}... ", check_pc);
+            match prog.get(check_pc) {
+                Some(op) => match op {
+                    Op::Nop(v) => {
+                        print!("nop -> jmp {}? ", v);
+                        prog.swap_op(check_pc, Op::Jmp(v));
+                    }
+                    Op::Jmp(v) => {
+                        print!("jmp -> nop {}? ", v);
+                        prog.swap_op(check_pc, Op::Nop(v));
+                    }
+                    _ => {
+                        println!("invalid swap.");
+                        continue;
+                    }
+                },
+                None => {
+                    println!("end of program.");
+                    return;
+                }
+            };
+
+            m.load(&prog);
+            match m.run() {
+                Ok(_) => {
+                    println!("success! acc: {}", m.acc());
+                    return;
+                }
+                _ => println!("nope."),
+            }
+        }
     }
 }
 
@@ -59,26 +92,32 @@ impl<'a> Machine<'a> {
         self.program = Some(prog);
     }
 
-    fn run(&mut self) {
-        while !self.step() {}
+    fn run(&mut self) -> Result<bool, err::ExecError> {
+        loop {
+            match self.step() {
+                Ok(v) if v => return Ok(true),
+                Ok(_) => continue,
+                Err(e) => return Err(e),
+            };
+        }
     }
 
-    fn step(&mut self) -> bool {
+    fn step(&mut self) -> Result<bool, err::ExecError> {
         let ir = match &self.program {
-            Some(p) => match p.ops().get(self.pc as usize) {
+            Some(p) => match p.get(self.pc) {
                 Some(ir) => ir,
-                None => return true,
+                None => return Ok(true),
             },
-            None => return true,
+            None => return Err(err::ExecError::new("no program loaded", 0)),
         };
 
         if self.executed.contains(&self.pc) {
-            return true
+            return Err(err::ExecError::new("loop detected", self.pc));
         }
 
         let old_pc = self.pc;
         match ir {
-            Op::Nop => {
+            Op::Nop(_) => {
                 self.pc += 1;
             }
             Op::Acc(acc) => {
@@ -87,24 +126,20 @@ impl<'a> Machine<'a> {
             }
             Op::Jmp(jmp) => {
                 self.pc = match self.pc as i32 + jmp {
-                    v if v < 0 =>
-                    /* TODO Invalid jmp, out of range */
-                    {
-                        return true
-                    }
+                    v if v < 0 => return Err(err::ExecError::new("jmp out of range", self.pc)),
                     v => v as u32,
                 };
             }
         }
         self.executed.push(old_pc);
 
-        false
+        Ok(false)
     }
 }
 
 #[derive(PartialEq, Debug)]
 enum Op {
-    Nop,
+    Nop(i32),
     Acc(i32),
     Jmp(i32),
 }
@@ -121,16 +156,29 @@ impl Op {
         }
 
         match parts[0] {
-            "nop" => Ok(Op::Nop),
+            "nop" => match parts[1].parse::<i32>() {
+                Ok(amt) => Ok(Op::Nop(amt)),
+                Err(_) => return Err(err::ParseError::new("invalid nop arg", s)),
+            },
             "acc" => match parts[1].parse::<i32>() {
                 Ok(amt) => Ok(Op::Acc(amt)),
-                Err(e) => return Err(err::ParseError::new("invalid acc arg", s)),
+                Err(_) => return Err(err::ParseError::new("invalid acc arg", s)),
             },
             "jmp" => match parts[1].parse::<i32>() {
                 Ok(amt) => Ok(Op::Jmp(amt)),
-                Err(e) => return Err(err::ParseError::new("invalid jmp arg", s)),
+                Err(_) => return Err(err::ParseError::new("invalid jmp arg", s)),
             },
             _ => return Err(err::ParseError::new("invalid op", s)),
+        }
+    }
+}
+
+impl From<&Op> for Op {
+    fn from(op: &Op) -> Self {
+        match op {
+            &Op::Acc(v) => Op::Acc(v),
+            &Op::Jmp(v) => Op::Jmp(v),
+            &Op::Nop(v) => Op::Nop(v),
         }
     }
 }
@@ -155,8 +203,19 @@ impl Program {
         Ok(Program { ops: ops })
     }
 
-    fn ops(&self) -> &Vec<Op> {
-        &self.ops
+    fn get(&self, idx: u32) -> Option<Op> {
+        match self.ops.get(idx as usize) {
+            Some(op) => Some(op.into()),
+            None => None,
+        }
+    }
+
+    fn swap_op(&mut self, idx: u32, op: Op) {
+        let old_op = self.ops.get(idx as usize);
+        match old_op {
+            Some(_) => self.ops[idx as usize] = op,
+            None => return,
+        }
     }
 }
 
@@ -184,7 +243,7 @@ mod tests {
         fn make_prog() -> Program {
             Program {
                 ops: vec![
-                    Op::Nop,
+                    Op::Nop(0),
                     Op::Acc(1),
                     Op::Jmp(4),
                     Op::Acc(3),
@@ -196,52 +255,69 @@ mod tests {
                 ],
             }
         }
+        fn make_finish_prog() -> Program {
+            Program {
+                ops: vec![
+                    Op::Nop(0),
+                    Op::Acc(1),
+                    Op::Jmp(4),
+                    Op::Acc(3),
+                    Op::Jmp(-3),
+                    Op::Acc(-99),
+                    Op::Acc(1),
+                    Op::Nop(0),
+                    Op::Acc(6),
+                ],
+            }
+        }
 
         #[test]
-        fn step() {
+        fn step_infinite() {
             let mut m = Machine::new();
             let p = make_prog();
             m.load(&p);
 
-            assert_eq!(m.step(), false);
+            assert_eq!(m.step(), Ok(false));
             assert_eq!(m.acc, 0);
             assert_eq!(m.pc, 1);
             assert_eq!(m.executed, vec![0]);
-            
-            assert_eq!(m.step(), false);
+            assert_eq!(m.step(), Ok(false));
             assert_eq!(m.acc, 1);
             assert_eq!(m.pc, 2);
             assert_eq!(m.executed, vec![0, 1]);
-            
-            assert_eq!(m.step(), false);
+            assert_eq!(m.step(), Ok(false));
             assert_eq!(m.acc, 1);
             assert_eq!(m.pc, 6);
             assert_eq!(m.executed, vec![0, 1, 2]);
-            
-            assert_eq!(m.step(), false);
+            assert_eq!(m.step(), Ok(false));
             assert_eq!(m.acc, 2);
             assert_eq!(m.pc, 7);
             assert_eq!(m.executed, vec![0, 1, 2, 6]);
-            
-            assert_eq!(m.step(), false);
+            assert_eq!(m.step(), Ok(false));
             assert_eq!(m.acc, 2);
             assert_eq!(m.pc, 3);
             assert_eq!(m.executed, vec![0, 1, 2, 6, 7]);
-            
-            assert_eq!(m.step(), false);
+            assert_eq!(m.step(), Ok(false));
             assert_eq!(m.acc, 5);
             assert_eq!(m.pc, 4);
             assert_eq!(m.executed, vec![0, 1, 2, 6, 7, 3]);
-            
-            assert_eq!(m.step(), false);
+            assert_eq!(m.step(), Ok(false));
             assert_eq!(m.acc, 5);
             assert_eq!(m.pc, 1);
             assert_eq!(m.executed, vec![0, 1, 2, 6, 7, 3, 4]);
-            
-            assert_eq!(m.step(), true);
+            assert_eq!(m.step(), Err(err::ExecError::new("loop detected", 1)));
             assert_eq!(m.acc, 5);
             assert_eq!(m.pc, 1);
             assert_eq!(m.executed, vec![0, 1, 2, 6, 7, 3, 4]);
+        }
+        #[test]
+        fn step_complete() {
+            let mut m = Machine::new();
+            let p = make_finish_prog();
+            m.load(&p);
+
+            assert_eq!(m.run(), Ok(true));
+            assert_eq!(m.acc(), 8);
         }
     }
 }
