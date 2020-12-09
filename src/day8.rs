@@ -234,7 +234,7 @@ mod tests {
             assert_eq!(Op::parse("jmp -1"), Ok(Op::Jmp(-1)));
             assert_eq!(Op::parse("jmp +10"), Ok(Op::Jmp(10)));
             assert_eq!(Op::parse("jmp -10"), Ok(Op::Jmp(-10)));
-            assert_eq!(Op::parse("nop +0"), Ok(Op::Nop));
+            assert_eq!(Op::parse("nop +0"), Ok(Op::Nop(0)));
         }
     }
 
