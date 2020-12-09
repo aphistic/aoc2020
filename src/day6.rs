@@ -37,11 +37,7 @@ struct Survey {
 }
 
 impl Survey {
-    fn new() -> Survey {
-        Survey {
-            yes_answers: Vec::new(),
-        }
-    }
+    #[cfg(test)]
     fn with_yes_answers(answers: Vec<char>) -> Survey {
         Survey{
             yes_answers: answers,
